@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS FORWARD — AI Telegram Forwarder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --gold: #FFD700;
+    --gold-dark: #B8860B;
+    --gold-dim: #B8860B44;
+    --bg: #030303;
+    --bg2: #0d0d0d;
+    --bg3: #111108;
+    --text: #E8D5A0;
+    --text-dim: #B8860B99;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+
+  /* ── CANVAS ── */
+  #matrix-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0.3; z-index: 0; pointer-events: none;
+  }
+
+  /* ── GOLD ORBS ── */
+  .orb {
+    position: fixed; border-radius: 50%;
+    background: radial-gradient(circle, #FFD70022 0%, #B8860B11 50%, transparent 70%);
+    filter: blur(60px); pointer-events: none; z-index: 0;
+    animation: orbPulse 5s ease-in-out infinite;
+  }
+  .orb1 { width: 600px; height: 600px; top: -250px; left: -200px; }
+  .orb2 { width: 500px; height: 500px; bottom: -200px; right: -150px; animation-delay: -2.5s; }
+
+  /* ── LAYOUT ── */
+  #app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* ── AUTH SCREEN ── */
+  #screen-auth {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .logo-wrap {
+    text-align: center;
+    margin-bottom: 32px;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .logo-deco { font-size: 13px; letter-spacing: 6px; color: var(--gold-dark); margin-bottom: 10px; }
+
+  .logo-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    background: linear-gradient(135deg, #B8860B, #FFD700, #FFF8DC, #FFD700, #B8860B);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  .logo-line {
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 12px auto 0;
+  }
+
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border: 1px solid #FFD70044;
+    border-radius: 20px;
+    background: #FFD70011;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 24px;
+    animation: fadeUp 0.8s ease 0.2s both;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: linear-gradient(135deg, #0d0d0d 0%, #111108 100%);
+    border: 1px solid #B8860B44;
+    border-radius: 3px;
+    box-shadow: 0 0 40px #B8860B18, inset 0 1px 0 #FFD70018;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 36px;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    letter-spacing: 5px;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  /* ── FORM ── */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  .field input, .field textarea {
+    width: 100%;
+    background: transparent;
+    border: 1px solid #B8860B55;
+    border-radius: 2px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .field input:focus, .field textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px #FFD70018;
+  }
+
+  input::placeholder, textarea::placeholder { color: #B8860B44; }
+
+  /* ── BUTTONS ── */
+  .btn-gold {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #B8860B, #FFD700, #B8860B);
+    background-size: 200% auto;
+    border: none;
+    border-radius: 2px;
+    color: #000;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s, transform 0.1s, background-position 0.3s;
+  }
+  .btn-gold:hover { background-position: right center; transform: translateY(-1px); }
+  .btn-gold:active { transform: translateY(0); }
+  .btn-gold:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .btn-outline {
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid #B8860B77;
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+  .btn-outline:hover { border-color: var(--gold); background: #FFD70011; }
+
+  /* ── TERMS ── */
+  .terms-box {
+    padding: 16px;
+    background: #B8860B08;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    margin-bottom: 20px;
+  }
+
+  .terms-text {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: #B8860BAA;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .custom-checkbox {
+    width: 18px; height: 18px;
+    border: 2px solid #B8860B55;
+    border-radius: 2px;
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .custom-checkbox.checked {
+    border-color: var(--gold);
+    background: var(--gold);
+  }
+  .custom-checkbox.checked::after { content: '✓'; font-size: 12px; color: #000; font-weight: 900; }
+
+  .checkbox-label { font-size: 12px; letter-spacing: 1px; color: var(--text); }
+
+  /* ── AUTH SWITCH ── */
+  .auth-switch {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    color: #B8860B88;
+    letter-spacing: 1px;
+  }
+  .auth-switch a { color: var(--gold); cursor: pointer; text-decoration: underline; }
+
+  /* ── TRIAL BADGE ── */
+  .trial-badge {
+    margin-top: 24px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #B8860B55;
+    animation: fadeUp 0.8s ease 0.5s both;
+  }
+
+  /* ── LANG PICKER ── */
+  .lang-picker { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .lang-btn {
+    padding: 5px 12px;
+    border-radius: 2px;
+    border: 1px solid #B8860B33;
+    background: transparent;
+    color: #B8860B88;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .lang-btn.active { border-color: var(--gold); background: #FFD70011; color: var(--gold); }
+
+  /* ── VERIFY SCREEN ── */
+  #screen-verify {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .verify-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 40px;
+    text-align: center;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .verify-icon { font-size: 44px; margin-bottom: 16px; animation: orbPulse 2s ease infinite; }
+
+  .code-inputs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 24px 0;
+  }
+
+  .code-input {
+    width: 46px; height: 56px;
+    background: transparent;
+    border: 1px solid #B8860B55;
+    border-radius: 2px;
+    color: var(--gold);
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    caret-color: var(--gold);
+  }
+  .code-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px #FFD70018; }
+
+  /* ── PAYWALL SCREEN ── */
+  #screen-paywall {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .paywall-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 48px;
+    text-align: center;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .price-big {
+    font-family: 'Orbitron', monospace;
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 2px;
+    margin: 12px 0 6px;
+    animation: shimmer 3s linear infinite;
+    background: linear-gradient(135deg, #B8860B, #FFD700, #FFF8DC, #FFD700, #B8860B);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── DASHBOARD ── */
+  #screen-dashboard {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 14px 28px;
+    border-bottom: 1px solid #B8860B22;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(3,3,3,0.9);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .header-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    background: linear-gradient(135deg, #B8860B, #FFD700, #B8860B);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .header-sub { font-size: 9px; letter-spacing: 3px; color: #B8860B55; margin-top: 2px; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  .trial-pill {
+    padding: 6px 14px;
+    background: #FFD70011;
+    border: 1px solid #FFD70066;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    transition: background 0.2s;
+    animation: blink 2s ease infinite;
+  }
+  .trial-pill:hover { background: #FFD70022; }
+
+  .lang-select {
+    background: var(--bg2);
+    border: 1px solid #B8860B44;
+    color: #B8860B;
+    border-radius: 2px;
+    padding: 6px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* ── DASHBOARD BODY ── */
+  .dash-body { display: flex; flex: 1; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 210px;
+    border-right: 1px solid #B8860B22;
+    padding: 28px 0;
+    background: rgba(3,3,3,0.5);
+    flex-shrink: 0;
+  }
+
+  .nav-item {
+    width: 100%;
+    padding: 13px 22px;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    color: #B8860B77;
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-align: left;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.2s;
+    display: block;
+  }
+  .nav-item:hover { background: #FFD70008; color: #B8860B; }
+  .nav-item.active { background: #FFD70011; border-left-color: var(--gold); color: var(--gold); }
+
+  /* ── MAIN CONTENT ── */
+  .main { flex: 1; padding: 36px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .section-line { width: 60px; height: 1px; background: linear-gradient(90deg, var(--gold), transparent); margin-bottom: 28px; }
+
+  /* ── STATS ── */
+  .stats-grid { display: flex; gap: 16px; margin-bottom: 32px; }
+  .stat-card {
+    flex: 1;
+    text-align: center;
+    padding: 24px 16px;
+    background: var(--bg2);
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: #B8860B77; }
+  .stat-icon { font-size: 22px; color: var(--gold-dark); margin-bottom: 8px; }
+  .stat-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+  .stat-label { font-size: 9px; letter-spacing: 2px; color: #B8860B66; margin-top: 6px; }
+
+  /* ── AI BANNER ── */
+  .ai-banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 22px 24px;
+    background: #B8860B08;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    margin-bottom: 28px;
+  }
+  .ai-banner-icon { font-size: 32px; color: var(--gold); animation: blink 2s ease infinite; flex-shrink: 0; }
+  .ai-banner-title { font-size: 12px; letter-spacing: 3px; color: var(--gold); margin-bottom: 6px; }
+  .ai-banner-text { font-size: 12px; color: var(--text-dim); letter-spacing: 0.5px; line-height: 1.7; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 52px;
+    border: 1px dashed #B8860B33;
+    border-radius: 2px;
+  }
+  .empty-icon { font-size: 36px; color: #B8860B33; margin-bottom: 14px; }
+  .empty-label { font-size: 11px; letter-spacing: 3px; color: #B8860B55; margin-bottom: 20px; }
+
+  /* ── CHANNEL CARDS ── */
+  .channel-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .channel-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    transition: border-color 0.2s;
+  }
+  .channel-card:hover { border-color: #B8860B77; }
+
+  .channel-route { font-size: 13px; color: var(--gold); letter-spacing: 2px; margin-bottom: 8px; }
+
+  .channel-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 1px;
+  }
+  .tag-gold { background: #FFD70011; border: 1px solid #FFD70044; color: var(--gold); }
+  .tag-dim { background: #B8860B11; border: 1px solid #B8860B44; color: var(--gold-dark); }
+
+  .status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .status-active { background: #00FF88; box-shadow: 0 0 8px #00FF8888; animation: blink 2s ease infinite; }
+  .status-inactive { background: #FF4444; }
+
+  .status-text { font-size: 10px; letter-spacing: 2px; }
+  .status-text.active { color: #00FF88; }
+  .status-text.inactive { color: #FF4444; }
+
+  .channel-status { display: flex; align-items: center; }
+
+  /* ── TOGGLE ── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #B8860B08;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    margin-bottom: 12px;
+  }
+  .toggle-row.with-expand { flex-direction: column; align-items: stretch; }
+  .toggle-row-inner { display: flex; align-items: center; justify-content: space-between; }
+
+  .toggle-label { font-size: 12px; letter-spacing: 2px; color: var(--text); }
+  .toggle-sub { font-size: 10px; letter-spacing: 1px; color: #B8860B55; margin-top: 3px; }
+
+  .toggle-switch {
+    width: 50px; height: 28px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .toggle-knob {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #000;
+    position: absolute;
+    top: 3px;
+    transition: left 0.3s;
+  }
+
+  .expand-input {
+    margin-top: 14px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid #B8860B55;
+    border-radius: 2px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .expand-input:focus { border-color: var(--gold); }
+
+  /* ── REFERRAL ── */
+  .referral-code-box {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .code-display {
+    flex: 1;
+    padding: 13px 18px;
+    background: #FFD70008;
+    border: 1px solid #FFD70055;
+    border-radius: 2px;
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    background: #B8860B08;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    flex-wrap: wrap;
+  }
+  .flow-step { text-align: center; }
+  .flow-icon { font-size: 22px; }
+  .flow-text { font-size: 9px; letter-spacing: 1px; color: #B8860B77; margin-top: 4px; white-space: pre-line; }
+
+  /* ── NOTIFICATION ── */
+  #notification {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 200;
+    padding: 12px 24px;
+    border-radius: 2px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    animation: fadeUp 0.3s ease;
+    display: none;
+  }
+  #notification.success {
+    background: #00FF8811;
+    border: 1px solid #00FF88;
+    color: #00FF88;
+  }
+  #notification.error {
+    background: #FF444411;
+    border: 1px solid #FF4444;
+    color: #FF4444;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes shimmer {
+    0% { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes orbPulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  @keyframes scan {
+    0% { top: -2px; }
+    100% { top: 100%; }
+  }
+
+  /* ── SCAN LINE EFFECT ── */
+  .scanline {
+    position: fixed;
+    left: 0; width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, #FFD70011, transparent);
+    animation: scan 6s linear infinite;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ── SECTION CONTENT ── */
+  .tab-content { display: none; animation: fadeUp 0.4s ease both; }
+  .tab-content.active { display: block; }
+
+  /* ── LANGUAGE ROUTE SELECTOR ── */
+  .lang-route {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    background: #B8860B08;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    margin-bottom: 12px;
+  }
+  .lang-route-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--gold-dark);
+    flex-shrink: 0;
+  }
+  .lang-route-select {
+    flex: 1;
+    background: #0d0d0d;
+    border: 1px solid #B8860B55;
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23B8860B'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  .lang-route-select:focus { border-color: var(--gold); }
+  .lang-route-arrow {
+    font-size: 20px;
+    color: var(--gold);
+    flex-shrink: 0;
+    animation: blink 2s ease infinite;
+  }
+
+  /* ── TRANSLATE DEMO ── */
+  .translate-demo {
+    padding: 24px;
+    background: #050505;
+    border: 1px solid #B8860B44;
+    border-radius: 2px;
+    margin-top: 24px;
+  }
+  .translate-demo-title {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--gold-dark);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .translate-demo-title::before { content:''; flex:1; height:1px; background:linear-gradient(90deg,#FFD70033,transparent); }
+  .translate-demo-title::after  { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,#FFD70033); }
+  .translate-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .translate-panel label {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--gold-dark);
+    margin-bottom: 7px;
+  }
+  .translate-panel textarea {
+    width: 100%;
+    height: 100px;
+    background: #0a0a05;
+    border: 1px solid #B8860B33;
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 12px;
+    outline: none;
+    resize: none;
+    line-height: 1.6;
+    transition: border-color 0.2s;
+  }
+  .translate-panel textarea:focus { border-color: var(--gold); }
+  .translate-panel textarea[readonly] {
+    color: var(--gold);
+    border-color: #FFD70022;
+    background: #FFD70005;
+  }
+  .translate-panel textarea[readonly].loading {
+    color: #B8860B66;
+    animation: blink 1s ease infinite;
+  }
+  .ai-engine-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg,#FFD70011,#B8860B08);
+    border: 1px solid #FFD70033;
+    border-radius: 20px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .ai-engine-badge span { animation: blink 1.5s ease infinite; }
+
+  /* ── TRANSLATE SETTINGS CARD ── */
+  .translate-card {
+    border: 1px solid #FFD70033 !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .translate-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    animation: shimmer 3s linear infinite;
+    background-size: 200% auto;
+  }
+
+  /* ── API KEY INPUT ── */
+  .api-key-section {
+    padding: 16px 20px;
+    background: #FFD70008;
+    border: 1px solid #FFD70033;
+    border-radius: 2px;
+    margin-bottom: 20px;
+  }
+  .api-key-section label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .api-key-row { display: flex; gap: 10px; align-items: center; }
+  .api-key-input {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #B8860B55;
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-key-input:focus { border-color: var(--gold); }
+  .api-key-status {
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+  .api-key-status.ok { color: #00FF88; }
+  .api-key-status.missing { color: #FF8844; }
+
+  .style-btn {
+    padding: 7px 16px;
+    background: transparent;
+    border: 1px solid #B8860B44;
+    border-radius: 20px;
+    color: #B8860B88;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .style-btn:hover { border-color: #B8860B88; color: var(--text); }
+  .style-btn.active { border-color: var(--gold); background: #FFD70011; color: var(--gold); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .stats-grid { flex-direction: column; }
+    .header { padding: 12px 16px; }
+    .header-logo { font-size: 12px; letter-spacing: 4px; }
+    .main { padding: 20px 16px; }
+    .translate-panels { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="scanline"></div>
+
+<div id="notification"></div>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  AUTH SCREEN                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-auth" class="screen active">
+
+    <div class="logo-wrap">
+      <div class="logo-deco">◈ ◈ ◈</div>
+      <div class="logo-title" id="auth-app-name">NEXUS FORWARD</div>
+      <div class="logo-sub" id="auth-tagline">AI-drevet videresending. Perfekt. Autonom.</div>
+      <div class="logo-line"></div>
+    </div>
+
+    <div class="ai-badge" id="auth-ai-badge">⬡ AI-DREVET TEKNOLOGI</div>
+
+    <div class="card auth-card">
+      <div class="card-title" id="auth-title">VELKOMMEN TILBAKE</div>
+
+      <!-- Language picker -->
+      <div class="field" style="margin-bottom:22px;">
+        <label id="lbl-language">SPRÅK</label>
+        <div class="lang-picker" id="lang-picker-auth"></div>
+      </div>
+
+      <div class="field">
+        <label id="lbl-email">E-POSTADRESSE</label>
+        <input type="email" id="auth-email" placeholder="bruker@example.com">
+      </div>
+
+      <div class="field" style="margin-bottom:20px;">
+        <label id="lbl-password">PASSORD</label>
+        <input type="password" id="auth-password" placeholder="••••••••">
+      </div>
+
+      <!-- Register extras (hidden in login mode) -->
+      <div id="register-extras" style="display:none;">
+        <div class="field">
+          <label id="lbl-referral-input">HAR DU EN REFERAL-KODE? <span style="color:#B8860B55">(VALGFRITT)</span></label>
+          <input type="text" id="auth-referral" placeholder="NX-XXXXX">
+        </div>
+        <div class="terms-box">
+          <div class="terms-text" id="terms-text-content"></div>
+          <div class="checkbox-row" onclick="toggleTerms()">
+            <div class="custom-checkbox" id="terms-checkbox"></div>
+            <span class="checkbox-label" id="lbl-accept-terms">Jeg godtar vilkårene</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-gold" id="auth-btn" onclick="handleAuth()">LOGG INN</button>
+
+      <div class="auth-switch">
+        <span id="switch-prefix">Ingen konto? </span>
+        <a onclick="toggleAuthMode()" id="switch-link">Registrer deg</a>
+      </div>
+    </div>
+
+    <div class="trial-badge">✦ 30 DAGER GRATIS &nbsp;·&nbsp; $9/MND ETTER &nbsp;·&nbsp; INGEN BINDING ✦</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  VERIFY SCREEN                                                  -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-verify" class="screen">
+
+    <div class="card verify-card">
+      <div class="verify-icon">✉</div>
+      <div class="card-title" id="verify-title">VERIFISER E-POST</div>
+      <div style="font-size:12px;color:var(--text-dim);letter-spacing:1px;line-height:1.7;" id="verify-desc-text">
+        Vi har sendt en 6-sifret kode til<br>
+        <strong style="color:var(--text);font-size:13px;" id="verify-email-display"></strong>
+      </div>
+
+      <div class="code-inputs" id="code-inputs">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,0)">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,1)">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,2)">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,3)">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,4)">
+        <input class="code-input" maxlength="1" oninput="handleCodeInput(this,5)">
+      </div>
+
+      <button class="btn-gold" onclick="handleVerify()" id="verify-btn">VERIFISER</button>
+      <div style="margin-top:14px;font-size:11px;color:#B8860B55;letter-spacing:1px;text-align:center;">
+        Demo: skriv inn hvilken som helst 6-sifret kode
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  PAYWALL SCREEN                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-paywall" class="screen">
+
+    <div class="card paywall-card">
+      <div style="font-size:52px;color:var(--gold);margin-bottom:16px;">⬡</div>
+      <div class="card-title" style="font-size:16px;" id="paywall-title">PRØVEPERIODEN ER UTLØPT</div>
+      <p style="font-size:13px;color:var(--text-dim);letter-spacing:1px;margin:12px 0 32px;line-height:1.7;" id="paywall-desc-text">
+        Oppgrader til Pro for å fortsette å bruke Nexus Forward
+      </p>
+      <div class="price-big">$9<span style="font-size:24px;">/MND</span></div>
+      <div style="font-size:10px;color:#B8860B77;letter-spacing:3px;margin-bottom:32px;">PER MONTH · CANCEL ANYTIME</div>
+      <button class="btn-gold" onclick="notify('Betalingssystem kommer snart!','success')">START ABONNEMENT</button>
+
+      <div style="margin-top:28px;padding-top:28px;border-top:1px solid #B8860B22;">
+        <div style="font-size:11px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">DIN REFERAL-KODE</div>
+        <div id="paywall-referral-code" class="code-display" style="text-align:center;margin-bottom:10px;"></div>
+        <div style="font-size:10px;color:#B8860B55;letter-spacing:1px;line-height:1.6;" id="paywall-referral-bonus"></div>
+      </div>
+
+      <button class="btn-outline" style="width:100%;margin-top:20px;" onclick="showScreen('dashboard')">← Tilbake</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  DASHBOARD SCREEN                                               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="screen-dashboard" class="screen">
+
+    <!-- Header -->
+    <header class="header">
+      <div>
+        <div class="header-logo">NEXUS FORWARD</div>
+        <div class="header-sub">AI-POWERED · AUTONOMOUS FORWARDING</div>
+      </div>
+      <div class="header-right">
+        <div class="trial-pill" onclick="showScreen('paywall')" id="trial-pill">15 DAGER IGJEN · UPGRADE</div>
+        <select class="lang-select" id="dash-lang-select" onchange="setLang(this.value)"></select>
+        <button class="btn-outline" style="padding:7px 14px;font-size:11px;" onclick="handleLogout()">LOGG UT</button>
+      </div>
+    </header>
+
+    <div class="dash-body">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <button class="nav-item active" onclick="switchTab('overview',this)" data-i18n="nav-overview">⬡ &nbsp;OVERSIKT</button>
+        <button class="nav-item" onclick="switchTab('channel',this)" data-i18n="nav-channel">⊕ &nbsp;NY KANAL</button>
+        <button class="nav-item" onclick="switchTab('referral',this)" data-i18n="nav-referral">◈ &nbsp;REFERRAL</button>
+        <button class="nav-item" onclick="switchTab('settings',this)" data-i18n="nav-settings">⊗ &nbsp;INNSTILLINGER</button>
+      </aside>
+
+      <!-- Main content -->
+      <main class="main">
+
+        <!-- ── OVERVIEW TAB ── -->
+        <div id="tab-overview" class="tab-content active">
+          <div class="section-title" id="title-dashboard">OVERSIKT</div>
+          <div class="section-line"></div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">⬡</div>
+              <div class="stat-num" id="stat-messages">12,847</div>
+              <div class="stat-label" id="lbl-stat-messages">MELDINGER VIDERESENDT</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">⊗</div>
+              <div class="stat-num" id="stat-ads">3,241</div>
+              <div class="stat-label" id="lbl-stat-ads">REKLAMER FJERNET</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">⊕</div>
+              <div class="stat-num" id="stat-channels">0</div>
+              <div class="stat-label" id="lbl-stat-channels">AKTIVE KANALER</div>
+            </div>
+          </div>
+
+          <div class="ai-banner">
+            <div class="ai-banner-icon">⬡</div>
+            <div>
+              <div class="ai-banner-title" id="ai-banner-title">AI-DREVET TEKNOLOGI</div>
+              <div class="ai-banner-text" id="ai-banner-text">Avansert kunstig intelligens analyserer og filtrerer hver melding i sanntid</div>
+            </div>
+          </div>
+
+          <div id="channel-list-container">
+            <div class="empty-state" id="empty-state">
+              <div class="empty-icon">⊕</div>
+              <div class="empty-label" id="empty-label">INGEN KANALER ENDA</div>
+              <button class="btn-gold" style="width:auto;padding:10px 24px;" onclick="switchTab('channel',document.querySelector('.nav-item:nth-child(2)'))">+ NY KANAL</button>
+            </div>
+            <div class="channel-list" id="channel-list" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- ── CHANNEL TAB ── -->
+        <div id="tab-channel" class="tab-content">
+          <div class="section-title" id="title-new-channel">NY KANAL</div>
+          <div class="section-line"></div>
+
+          <div style="max-width:620px;display:flex;flex-direction:column;gap:16px;">
+
+            <!-- Source / target -->
+            <div class="card" style="padding:28px;">
+              <div class="field">
+                <label id="lbl-source-channel">KILDE-KANAL</label>
+                <input type="text" id="ch-source" placeholder="@kanallenke eller Bot API-lenke">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label id="lbl-target-channel">MÅL-GRUPPE</label>
+                <input type="text" id="ch-target" placeholder="@gruppelenke">
+              </div>
+            </div>
+
+            <!-- ── AI TRANSLATION CARD ── -->
+            <div class="card translate-card" style="padding:28px;">
+              <div class="ai-engine-badge">
+                <span>⬡</span> CLAUDE AI OVERSETTELSESMOTOR &nbsp;·&nbsp; <span>◈</span> KONTEKSTUELL · NATURLIG · PRESIS
+              </div>
+
+              <!-- Toggle: Translation on/off -->
+              <div class="toggle-row" style="margin-bottom:16px;">
+                <div>
+                  <div class="toggle-label" id="lbl-translate-toggle">Aktiver AI-oversettelse</div>
+                  <div class="toggle-sub">BRUKER CLAUDE SONNET · FORSTÅR KONTEKST OG SJARGONG</div>
+                </div>
+                <button class="toggle-switch" id="toggle-translate" onclick="toggleSwitch('translate')" style="background:#B8860B33;">
+                  <div class="toggle-knob" style="left:4px;"></div>
+                </button>
+              </div>
+
+              <!-- Language route selector (shown when translation is on) -->
+              <div id="translate-options" style="display:none;">
+
+                <div class="lang-route">
+                  <span class="lang-route-label" id="lbl-from-lang">FRA</span>
+                  <select class="lang-route-select" id="ch-lang-from">
+                    <option value="auto">🔍 Auto-detekter</option>
+                    <option value="ar" selected>🇸🇦 Arabisk</option>
+                    <option value="fa">🇮🇷 Persisk (Farsi)</option>
+                    <option value="he">🇮🇱 Hebraisk</option>
+                    <option value="tr">🇹🇷 Tyrkisk</option>
+                    <option value="ru">🇷🇺 Russisk</option>
+                    <option value="zh">🇨🇳 Kinesisk</option>
+                    <option value="ja">🇯🇵 Japansk</option>
+                    <option value="ko">🇰🇷 Koreansk</option>
+                    <option value="hi">🇮🇳 Hindi</option>
+                    <option value="de">🇩🇪 Tysk</option>
+                    <option value="fr">🇫🇷 Fransk</option>
+                    <option value="es">🇪🇸 Spansk</option>
+                    <option value="pt">🇵🇹 Portugisisk</option>
+                    <option value="it">🇮🇹 Italiensk</option>
+                    <option value="pl">🇵🇱 Polsk</option>
+                    <option value="uk">🇺🇦 Ukrainsk</option>
+                    <option value="nl">🇳🇱 Nederlandsk</option>
+                    <option value="sv">🇸🇪 Svensk</option>
+                    <option value="da">🇩🇰 Dansk</option>
+                    <option value="fi">🇫🇮 Finsk</option>
+                    <option value="en">🇬🇧 Engelsk</option>
+                    <option value="no">🇳🇴 Norsk</option>
+                  </select>
+                  <span class="lang-route-arrow">→</span>
+                  <span class="lang-route-label" id="lbl-to-lang">TIL</span>
+                  <select class="lang-route-select" id="ch-lang-to">
+                    <option value="no" selected>🇳🇴 Norsk</option>
+                    <option value="en">🇬🇧 Engelsk</option>
+                    <option value="sv">🇸🇪 Svensk</option>
+                    <option value="da">🇩🇰 Dansk</option>
+                    <option value="de">🇩🇪 Tysk</option>
+                    <option value="fr">🇫🇷 Fransk</option>
+                    <option value="es">🇪🇸 Spansk</option>
+                    <option value="pt">🇵🇹 Portugisisk</option>
+                    <option value="it">🇮🇹 Italiensk</option>
+                    <option value="pl">🇵🇱 Polsk</option>
+                    <option value="nl">🇳🇱 Nederlandsk</option>
+                    <option value="ru">🇷🇺 Russisk</option>
+                    <option value="tr">🇹🇷 Tyrkisk</option>
+                    <option value="ar">🇸🇦 Arabisk</option>
+                    <option value="zh">🇨🇳 Kinesisk</option>
+                    <option value="ja">🇯🇵 Japansk</option>
+                    <option value="ko">🇰🇷 Koreansk</option>
+                    <option value="hi">🇮🇳 Hindi</option>
+                    <option value="uk">🇺🇦 Ukrainsk</option>
+                    <option value="fi">🇫🇮 Finsk</option>
+                  </select>
+                </div>
+
+                <!-- Translation style -->
+                <div style="margin-bottom:16px;">
+                  <label style="font-size:9px;letter-spacing:3px;color:var(--gold-dark);display:block;margin-bottom:8px;" id="lbl-translate-style">OVERSETTELSESSTIL</label>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="style-btn active" onclick="setTranslateStyle('natural',this)" id="style-natural">💬 Naturlig</button>
+                    <button class="style-btn" onclick="setTranslateStyle('formal',this)" id="style-formal">📋 Formell</button>
+                    <button class="style-btn" onclick="setTranslateStyle('news',this)" id="style-news">📰 Nyheter</button>
+                    <button class="style-btn" onclick="setTranslateStyle('literal',this)" id="style-literal">📖 Bokstavelig</button>
+                  </div>
+                </div>
+
+                <!-- Live translate demo -->
+                <div class="translate-demo">
+                  <div class="translate-demo-title">LIVE OVERSETTINGSDEMO</div>
+
+                  <!-- API key input -->
+                  <div class="api-key-section">
+                    <label>⬡ CLAUDE API-NØKKEL (for live demo)</label>
+                    <div class="api-key-row">
+                      <input type="password" class="api-key-input" id="demo-api-key" placeholder="sk-ant-api03-..." oninput="handleApiKeyInput()">
+                      <button class="btn-outline" style="padding:9px 16px;font-size:10px;" onclick="testApiKey()">TEST</button>
+                    </div>
+                    <div class="api-key-status missing" id="api-key-status">⚠ Ingen nøkkel — demo bruker eksempel-oversettelse</div>
+                  </div>
+
+                  <div class="translate-panels">
+                    <div class="translate-panel">
+                      <label id="lbl-demo-input">ORIGINAL MELDING</label>
+                      <textarea id="demo-input" placeholder="Skriv inn tekst her for å teste oversettelsen...&#10;&#10;Eksempel: مرحباً، هذا اختبار للترجمة الذكية" oninput="debouncedTranslate()"></textarea>
+                    </div>
+                    <div class="translate-panel">
+                      <label id="lbl-demo-output">AI-OVERSETTELSE <span id="translate-engine-label" style="color:#B8860B77;font-size:8px;">· CLAUDE SONNET</span></label>
+                      <textarea id="demo-output" readonly placeholder="Oversettelse vises her..."></textarea>
+                    </div>
+                  </div>
+
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <button class="btn-gold" style="width:auto;padding:10px 24px;font-size:11px;" onclick="runDemoTranslate()">
+                      ⬡ OVERSETT NÅ
+                    </button>
+                    <div id="translate-status" style="font-size:10px;letter-spacing:2px;color:#B8860B66;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filters card -->
+            <div class="card" style="padding:28px;">
+              <!-- Toggle: Remove ads -->
+              <div class="toggle-row" style="margin-bottom:12px;">
+                <div>
+                  <div class="toggle-label" id="lbl-remove-ads">Fjern all reklame fra kilde</div>
+                  <div class="toggle-sub">AI SPAM DETECTION · CLAUDE API</div>
+                </div>
+                <button class="toggle-switch" id="toggle-ads" onclick="toggleSwitch('ads')" style="background:#B8860B33;">
+                  <div class="toggle-knob" style="left:4px;"></div>
+                </button>
+              </div>
+
+              <!-- Toggle: Replace links -->
+              <div class="toggle-row with-expand" style="margin-bottom:12px;">
+                <div class="toggle-row-inner">
+                  <div>
+                    <div class="toggle-label" id="lbl-replace-links">Erstatt lenker fra kilde</div>
+                    <div class="toggle-sub">REPLACES ALL EXTERNAL LINKS</div>
+                  </div>
+                  <button class="toggle-switch" id="toggle-links" onclick="toggleSwitch('links')" style="background:#B8860B33;">
+                    <div class="toggle-knob" style="left:4px;"></div>
+                  </button>
+                </div>
+                <input class="expand-input" id="ch-link-url" placeholder="https://din-landingsside.no" style="display:none;">
+              </div>
+
+              <!-- Toggle: Replace sender -->
+              <div class="toggle-row with-expand" style="margin-bottom:0;">
+                <div class="toggle-row-inner">
+                  <div>
+                    <div class="toggle-label" id="lbl-replace-sender">Gjør avsender til:</div>
+                  </div>
+                  <button class="toggle-switch" id="toggle-sender" onclick="toggleSwitch('sender')" style="background:#B8860B33;">
+                    <div class="toggle-knob" style="left:4px;"></div>
+                  </button>
+                </div>
+                <input class="expand-input" id="ch-sender-name" placeholder="Ditt ønskede avsendernavn" style="display:none;">
+              </div>
+            </div>
+
+            <button class="btn-gold" onclick="addChannel()" id="btn-activate" style="max-width:620px;">AKTIVER KANAL</button>
+          </div>
+        </div>
+
+        <!-- ── REFERRAL TAB ── -->
+        <div id="tab-referral" class="tab-content">
+          <div class="section-title" id="title-referral">REFERRAL-PROGRAM</div>
+          <div class="section-line"></div>
+
+          <div class="card" style="padding:36px;max-width:500px;">
+            <div style="text-align:center;margin-bottom:32px;">
+              <div style="font-size:52px;color:var(--gold);margin-bottom:16px;animation:orbPulse 3s ease infinite;">◈</div>
+              <p style="font-size:13px;color:var(--text-dim);letter-spacing:1px;line-height:1.8;" id="referral-desc-text"></p>
+            </div>
+
+            <div class="field">
+              <label id="lbl-referral-code">DIN REFERAL-KODE</label>
+              <div class="referral-code-box">
+                <div class="code-display" id="user-referral-code">NX-XXXXX</div>
+                <button class="btn-outline" onclick="copyReferral()" id="copy-btn">KOPIER</button>
+              </div>
+            </div>
+
+            <div class="flow-diagram" style="margin-top:20px;">
+              <div class="flow-step"><div class="flow-icon" style="color:var(--gold-dark);">◈</div><div class="flow-text">Del kode</div></div>
+              <div style="color:#B8860B44;font-size:18px;">→</div>
+              <div class="flow-step"><div class="flow-icon" style="color:var(--gold-dark);">⊕</div><div class="flow-text">Venn\nregistrerer</div></div>
+              <div style="color:#B8860B44;font-size:18px;">→</div>
+              <div class="flow-step"><div class="flow-icon" style="color:var(--gold-dark);">⬡</div><div class="flow-text">Betaler</div></div>
+              <div style="color:#B8860B44;font-size:18px;">→</div>
+              <div class="flow-step"><div class="flow-icon" style="color:var(--gold);">✦</div><div class="flow-text" style="color:var(--gold-dark);">Dere begge\n1 mnd gratis!</div></div>
+            </div>
+
+            <p style="text-align:center;font-size:11px;color:#B8860B55;letter-spacing:1px;margin-top:20px;line-height:1.7;" id="referral-bonus-text"></p>
+          </div>
+        </div>
+
+        <!-- ── SETTINGS TAB ── -->
+        <div id="tab-settings" class="tab-content">
+          <div class="section-title" id="title-settings">INNSTILLINGER</div>
+          <div class="section-line"></div>
+
+          <div style="max-width:480px;">
+            <div class="card" style="padding:28px;margin-bottom:16px;">
+              <label style="font-size:10px;letter-spacing:3px;color:var(--gold-dark);display:block;margin-bottom:8px;">ACCOUNT</label>
+              <div style="padding:13px 16px;background:#B8860B08;border:1px solid #B8860B33;border-radius:2px;font-size:14px;color:var(--text);letter-spacing:1px;" id="settings-email"></div>
+            </div>
+
+            <div class="card" style="padding:28px;margin-bottom:16px;">
+              <label style="font-size:10px;letter-spacing:3px;color:var(--gold-dark);display:block;margin-bottom:12px;" id="lbl-language-settings">SPRÅK</label>
+              <div class="lang-picker" id="lang-picker-settings"></div>
+            </div>
+
+            <div class="card" style="padding:28px;border-color:#FFD70033;">
+              <div style="font-family:'Orbitron',monospace;font-size:13px;letter-spacing:3px;color:var(--gold);margin-bottom:8px;" id="upgrade-title">OPPGRADER TIL PRO</div>
+              <div style="font-size:12px;color:var(--text-dim);letter-spacing:1px;margin-bottom:20px;" id="upgrade-desc">Kun $9/mnd etter 30 dager gratis</div>
+              <button class="btn-gold" onclick="showScreen('paywall')" id="btn-upgrade">OPPGRADER</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATRIX CANVAS
+═══════════════════════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('matrix-canvas');
+const ctx = canvas.getContext('2d');
+let drops = [];
+
+function initMatrix() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cols = Math.floor(canvas.width / 18);
+  drops = Array(cols).fill(1);
+}
+
+const CHARS = '01アイウエオカキクケコ∑∆Ω≈≠∞→←↑↓⊕⊗◈⬡✦';
+let frame = 0;
+
+function drawMatrix() {
+  frame++;
+  ctx.fillStyle = 'rgba(0,0,0,0.04)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drops.forEach((y, i) => {
+    const char = CHARS[Math.floor(Math.random() * CHARS.length)];
+    const gold = frame % 80 === 0 && Math.random() > 0.96;
+    ctx.fillStyle = gold ? '#FFD700' : i % 7 === 0 ? '#B8860B44' : '#B8860B18';
+    ctx.font = (gold ? 'bold ' : '') + '13px monospace';
+    ctx.fillText(char, i * 18, y * 18);
+    if (y * 18 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  });
+}
+
+initMatrix();
+setInterval(drawMatrix, 50);
+window.addEventListener('resize', initMatrix);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRANSLATIONS
+═══════════════════════════════════════════════════════════════════════════ */
+const T = {
+  no: {
+    appName: 'NEXUS FORWARD',
+    tagline: 'AI-drevet videresending. Perfekt. Autonom.',
+    aiBadge: '⬡ AI-DREVET TEKNOLOGI',
+    titleWelcome: 'VELKOMMEN TILBAKE',
+    titleCreate: 'OPPRETT KONTO',
+    email: 'E-POSTADRESSE',
+    password: 'PASSORD',
+    referralInput: 'HAR DU EN REFERAL-KODE?',
+    optional: 'VALGFRITT',
+    termsText: 'Ved å registrere deg godtar du at Nexus Forward kan sende deg informasjon om våre tjenester og tilbud til din e-postadresse. Vi vil aldri selge, dele eller misbruke dine kontaktopplysninger til tredjepart. Du kan når som helst melde deg av.',
+    acceptTerms: 'Jeg godtar vilkårene',
+    btnLogin: 'LOGG INN',
+    btnContinue: 'FORTSETT',
+    switchToRegister: 'Ingen konto? ',
+    switchToLogin: 'Har du allerede konto? ',
+    registerLink: 'Registrer deg',
+    loginLink: 'Logg inn',
+    verifyTitle: 'VERIFISER E-POST',
+    verifyDesc: 'Vi har sendt en 6-sifret kode til',
+    verifyBtn: 'VERIFISER',
+    paywallTitle: 'PRØVEPERIODEN ER UTLØPT',
+    paywallDesc: 'Oppgrader til Pro for å fortsette å bruke Nexus Forward',
+    paywallBtn: 'START ABONNEMENT',
+    paywallReferralBonus: 'Når en ny bruker registrerer seg med din kode og betaler, får dere begge 1 måned gratis.',
+    trialPill: 'DAGER IGJEN · UPGRADE',
+    navOverview: '⬡  OVERSIKT',
+    navChannel: '⊕  NY KANAL',
+    navReferral: '◈  REFERRAL',
+    navSettings: '⊗  INNSTILLINGER',
+    titleDashboard: 'OVERSIKT',
+    titleChannel: 'NY KANAL',
+    titleReferral: 'REFERRAL-PROGRAM',
+    titleSettings: 'INNSTILLINGER',
+    statMessages: 'MELDINGER VIDERESENDT',
+    statAds: 'REKLAMER FJERNET',
+    statChannels: 'AKTIVE KANALER',
+    aiTitle: 'AI-DREVET TEKNOLOGI',
+    aiDesc: 'Avansert kunstig intelligens analyserer og filtrerer hver melding i sanntid',
+    emptyLabel: 'INGEN KANALER ENDA',
+    sourceChannel: 'KILDE-KANAL',
+    targetChannel: 'MÅL-GRUPPE',
+    sourcePlaceholder: '@kanallenke eller Bot API-lenke',
+    targetPlaceholder: '@gruppelenke',
+    removeAds: 'Fjern all reklame fra kilde',
+    replaceLinks: 'Erstatt lenker fra kilde',
+    replaceSender: 'Gjør avsender til:',
+    senderPlaceholder: 'Ditt ønskede avsendernavn',
+    linkPlaceholder: 'https://din-landingsside.no',
+    activateBtn: 'AKTIVER KANAL',
+    referralDesc: 'Del din personlige kode og få 1 måned gratis for deg og din venn — både eksisterende og ny kunde.',
+    referralCodeLabel: 'DIN REFERAL-KODE',
+    copyBtn: 'KOPIER',
+    copiedBtn: 'KOPIERT!',
+    referralBonus: 'Når en ny bruker registrerer seg med din kode og betaler, får dere begge 1 måned gratis.',
+    language: 'SPRÅK',
+    upgradeTitle: 'OPPGRADER TIL PRO',
+    upgradeDesc: 'Kun $9/mnd etter 30 dager gratis',
+    upgradeBtn: 'OPPGRADER',
+    logout: 'LOGG UT',
+    activeLabel: 'AKTIV',
+    inactiveLabel: 'INAKTIV',
+  },
+  en: {
+    appName:'NEXUS FORWARD', tagline:'AI-powered forwarding. Perfect. Autonomous.', aiBadge:'⬡ AI-POWERED TECHNOLOGY', titleWelcome:'WELCOME BACK', titleCreate:'CREATE ACCOUNT', email:'EMAIL ADDRESS', password:'PASSWORD', referralInput:'HAVE A REFERRAL CODE?', optional:'OPTIONAL', termsText:'By signing up you agree that Nexus Forward may send you information about our services and offers to your email address. We will never sell, share or misuse your contact information to third parties. You can unsubscribe at any time.', acceptTerms:'I accept the terms', btnLogin:'LOG IN', btnContinue:'CONTINUE', switchToRegister:'No account? ', switchToLogin:'Already have an account? ', registerLink:'Sign up', loginLink:'Log in', verifyTitle:'VERIFY EMAIL', verifyDesc:'We sent a 6-digit code to', verifyBtn:'VERIFY', paywallTitle:'YOUR FREE TRIAL HAS EXPIRED', paywallDesc:'Upgrade to Pro to continue using Nexus Forward', paywallBtn:'START SUBSCRIPTION', paywallReferralBonus:'When a new user signs up with your code and pays, you both get 1 free month.', trialPill:'DAYS LEFT · UPGRADE', navOverview:'⬡  DASHBOARD', navChannel:'⊕  NEW CHANNEL', navReferral:'◈  REFERRAL', navSettings:'⊗  SETTINGS', titleDashboard:'DASHBOARD', titleChannel:'NEW CHANNEL', titleReferral:'REFERRAL PROGRAM', titleSettings:'SETTINGS', statMessages:'MESSAGES FORWARDED', statAds:'ADS REMOVED', statChannels:'ACTIVE CHANNELS', aiTitle:'AI-POWERED TECHNOLOGY', aiDesc:'Advanced artificial intelligence analyzes and filters every message in real-time', emptyLabel:'NO CHANNELS YET', sourceChannel:'SOURCE CHANNEL', targetChannel:'TARGET GROUP', sourcePlaceholder:'@channellink or Bot API link', targetPlaceholder:'@grouplink', removeAds:'Remove all ads from source', replaceLinks:'Replace links from source', replaceSender:'Set sender name to:', senderPlaceholder:'Your desired sender name', linkPlaceholder:'https://your-landing-page.com', activateBtn:'ACTIVATE CHANNEL', referralDesc:'Share your personal code and get 1 free month for you and your friend — both existing and new customers.', referralCodeLabel:'YOUR REFERRAL CODE', copyBtn:'COPY', copiedBtn:'COPIED!', referralBonus:'When a new user signs up with your code and pays, you both get 1 free month.', language:'LANGUAGE', upgradeTitle:'UPGRADE TO PRO', upgradeDesc:'Only $9/month after 30 free days', upgradeBtn:'UPGRADE', logout:'LOG OUT', activeLabel:'ACTIVE', inactiveLabel:'INACTIVE',
+  },
+  sv: {
+    appName:'NEXUS FORWARD', tagline:'AI-driven vidarebefordran. Perfekt. Autonom.', aiBadge:'⬡ AI-DRIVEN TEKNIK', titleWelcome:'VÄLKOMMEN TILLBAKA', titleCreate:'SKAPA KONTO', email:'E-POSTADRESS', password:'LÖSENORD', referralInput:'HAR DU EN REFERRALKOD?', optional:'VALFRITT', termsText:'Genom att registrera dig godkänner du att Nexus Forward kan skicka information om våra tjänster till din e-postadress. Vi säljer aldrig dina kontaktuppgifter.', acceptTerms:'Jag godkänner villkoren', btnLogin:'LOGGA IN', btnContinue:'FORTSÄTT', switchToRegister:'Inget konto? ', switchToLogin:'Har du redan ett konto? ', registerLink:'Registrera dig', loginLink:'Logga in', verifyTitle:'VERIFIERA E-POST', verifyDesc:'Vi skickade en 6-siffrig kod till', verifyBtn:'VERIFIERA', paywallTitle:'DIN PROVPERIOD HAR GÅTT UT', paywallDesc:'Uppgradera till Pro för att fortsätta använda Nexus Forward', paywallBtn:'STARTA PRENUMERATION', paywallReferralBonus:'När en ny användare registrerar sig med din kod och betalar får ni båda 1 gratis månad.', trialPill:'DAGAR KVAR · UPPGRADERA', navOverview:'⬡  ÖVERSIKT', navChannel:'⊕  NY KANAL', navReferral:'◈  REFERRAL', navSettings:'⊗  INSTÄLLNINGAR', titleDashboard:'ÖVERSIKT', titleChannel:'NY KANAL', titleReferral:'REFERRALPROGRAM', titleSettings:'INSTÄLLNINGAR', statMessages:'MEDDELANDEN VIDAREBEFORDRADE', statAds:'ANNONSER BORTTAGNA', statChannels:'AKTIVA KANALER', aiTitle:'AI-DRIVEN TEKNIK', aiDesc:'Avancerad artificiell intelligens analyserar och filtrerar varje meddelande i realtid', emptyLabel:'INGA KANALER ÄN', sourceChannel:'KÄLLKANAL', targetChannel:'MÅLGRUPP', sourcePlaceholder:'@kanallänk eller Bot API-länk', targetPlaceholder:'@grupplänk', removeAds:'Ta bort all reklam från källa', replaceLinks:'Ersätt länkar från källa', replaceSender:'Sätt avsändarnamn till:', senderPlaceholder:'Önskat avsändarnamn', linkPlaceholder:'https://din-landningssida.se', activateBtn:'AKTIVERA KANAL', referralDesc:'Dela din personliga kod och få 1 gratis månad för dig och din vän — både befintliga och nya kunder.', referralCodeLabel:'DIN REFERRALKOD', copyBtn:'KOPIERA', copiedBtn:'KOPIERAT!', referralBonus:'När en ny användare registrerar sig med din kod och betalar får ni båda 1 gratis månad.', language:'SPRÅK', upgradeTitle:'UPPGRADERA TILL PRO', upgradeDesc:'Endast $9/mån efter 30 dagar gratis', upgradeBtn:'UPPGRADERA', logout:'LOGGA UT', activeLabel:'AKTIV', inactiveLabel:'INAKTIV',
+  },
+  es: {
+    appName:'NEXUS FORWARD', tagline:'Reenvío impulsado por IA. Perfecto. Autónomo.', aiBadge:'⬡ TECNOLOGÍA IA', titleWelcome:'BIENVENIDO DE NUEVO', titleCreate:'CREAR CUENTA', email:'CORREO ELECTRÓNICO', password:'CONTRASEÑA', referralInput:'¿TIENES UN CÓDIGO DE REFERIDO?', optional:'OPCIONAL', termsText:'Al registrarte aceptas que Nexus Forward pueda enviarte información sobre nuestros servicios. Nunca venderemos tus datos.', acceptTerms:'Acepto los términos', btnLogin:'INICIAR SESIÓN', btnContinue:'CONTINUAR', switchToRegister:'¿Sin cuenta? ', switchToLogin:'¿Ya tienes cuenta? ', registerLink:'Registrarse', loginLink:'Iniciar sesión', verifyTitle:'VERIFICAR CORREO', verifyDesc:'Enviamos un código de 6 dígitos a', verifyBtn:'VERIFICAR', paywallTitle:'TU PERÍODO DE PRUEBA HA EXPIRADO', paywallDesc:'Actualiza a Pro para continuar usando Nexus Forward', paywallBtn:'INICIAR SUSCRIPCIÓN', paywallReferralBonus:'Cuando un nuevo usuario se registra con tu código y paga, ambos obtienen 1 mes gratis.', trialPill:'DÍAS RESTANTES · UPGRADE', navOverview:'⬡  PANEL', navChannel:'⊕  NUEVO CANAL', navReferral:'◈  REFERIDO', navSettings:'⊗  CONFIGURACIÓN', titleDashboard:'PANEL', titleChannel:'NUEVO CANAL', titleReferral:'PROGRAMA DE REFERIDOS', titleSettings:'CONFIGURACIÓN', statMessages:'MENSAJES REENVIADOS', statAds:'ANUNCIOS ELIMINADOS', statChannels:'CANALES ACTIVOS', aiTitle:'TECNOLOGÍA IA', aiDesc:'IA avanzada analiza y filtra cada mensaje en tiempo real', emptyLabel:'AÚN NO HAY CANALES', sourceChannel:'CANAL FUENTE', targetChannel:'GRUPO DESTINO', sourcePlaceholder:'@enlacecanal o enlace API Bot', targetPlaceholder:'@enlacegrupo', removeAds:'Eliminar toda la publicidad de la fuente', replaceLinks:'Reemplazar enlaces de fuente', replaceSender:'Establecer remitente como:', senderPlaceholder:'Nombre de remitente deseado', linkPlaceholder:'https://tu-landing.com', activateBtn:'ACTIVAR CANAL', referralDesc:'Comparte tu código y obtén 1 mes gratis para ti y tu amigo.', referralCodeLabel:'TU CÓDIGO DE REFERIDO', copyBtn:'COPIAR', copiedBtn:'¡COPIADO!', referralBonus:'Cuando un nuevo usuario se registra con tu código y paga, ambos obtienen 1 mes gratis.', language:'IDIOMA', upgradeTitle:'ACTUALIZAR A PRO', upgradeDesc:'Solo $9/mes después de 30 días gratis', upgradeBtn:'ACTUALIZAR', logout:'CERRAR SESIÓN', activeLabel:'ACTIVO', inactiveLabel:'INACTIVO',
+  },
+  de: {
+    appName:'NEXUS FORWARD', tagline:'KI-gestützte Weiterleitung. Perfekt. Autonom.', aiBadge:'⬡ KI-TECHNOLOGIE', titleWelcome:'WILLKOMMEN ZURÜCK', titleCreate:'KONTO ERSTELLEN', email:'E-MAIL-ADRESSE', password:'PASSWORT', referralInput:'EMPFEHLUNGSCODE?', optional:'OPTIONAL', termsText:'Mit der Registrierung stimmen Sie zu, dass Nexus Forward Ihnen Informationen über unsere Dienste senden darf. Wir werden Ihre Kontaktdaten niemals verkaufen.', acceptTerms:'Ich akzeptiere die Bedingungen', btnLogin:'ANMELDEN', btnContinue:'WEITER', switchToRegister:'Kein Konto? ', switchToLogin:'Bereits ein Konto? ', registerLink:'Registrieren', loginLink:'Anmelden', verifyTitle:'E-MAIL VERIFIZIEREN', verifyDesc:'Wir haben einen 6-stelligen Code gesendet an', verifyBtn:'VERIFIZIEREN', paywallTitle:'TESTZEITRAUM ABGELAUFEN', paywallDesc:'Upgraden Sie auf Pro, um Nexus Forward weiter zu nutzen', paywallBtn:'ABO STARTEN', paywallReferralBonus:'Wenn ein neuer Nutzer sich mit deinem Code anmeldet und zahlt, erhalten Sie beide 1 Monat gratis.', trialPill:'TAGE VERBLEIBEND · UPGRADE', navOverview:'⬡  DASHBOARD', navChannel:'⊕  NEUER KANAL', navReferral:'◈  EMPFEHLUNG', navSettings:'⊗  EINSTELLUNGEN', titleDashboard:'DASHBOARD', titleChannel:'NEUER KANAL', titleReferral:'EMPFEHLUNGSPROGRAMM', titleSettings:'EINSTELLUNGEN', statMessages:'WEITERGELEITETE NACHRICHTEN', statAds:'ENTFERNTE ANZEIGEN', statChannels:'AKTIVE KANÄLE', aiTitle:'KI-TECHNOLOGIE', aiDesc:'Fortschrittliche KI analysiert und filtert jede Nachricht in Echtzeit', emptyLabel:'NOCH KEINE KANÄLE', sourceChannel:'QUELLKANAL', targetChannel:'ZIELGRUPPE', sourcePlaceholder:'@Kanallink oder Bot-API-Link', targetPlaceholder:'@Gruppenlink', removeAds:'Alle Werbung aus Quelle entfernen', replaceLinks:'Links aus Quelle ersetzen', replaceSender:'Absender setzen auf:', senderPlaceholder:'Gewünschter Absendername', linkPlaceholder:'https://ihre-landingpage.de', activateBtn:'KANAL AKTIVIEREN', referralDesc:'Teile deinen Code und erhalte 1 Monat gratis für dich und deinen Freund.', referralCodeLabel:'DEIN EMPFEHLUNGSCODE', copyBtn:'KOPIEREN', copiedBtn:'KOPIERT!', referralBonus:'Wenn ein neuer Nutzer sich mit deinem Code anmeldet und zahlt, erhalten Sie beide 1 Monat gratis.', language:'SPRACHE', upgradeTitle:'AUF PRO UPGRADEN', upgradeDesc:'Nur $9/Monat nach 30 kostenlosen Tagen', upgradeBtn:'UPGRADEN', logout:'ABMELDEN', activeLabel:'AKTIV', inactiveLabel:'INAKTIV',
+  },
+  fr: {
+    appName:'NEXUS FORWARD', tagline:'Transfert alimenté par IA. Parfait. Autonome.', aiBadge:'⬡ TECHNOLOGIE IA', titleWelcome:'BON RETOUR', titleCreate:'CRÉER UN COMPTE', email:'ADRESSE E-MAIL', password:'MOT DE PASSE', referralInput:'CODE DE PARRAINAGE?', optional:'FACULTATIF', termsText:'En vous inscrivant, vous acceptez que Nexus Forward vous envoie des informations sur nos services. Nous ne vendrons jamais vos données.', acceptTerms:"J'accepte les conditions", btnLogin:'SE CONNECTER', btnContinue:'CONTINUER', switchToRegister:'Pas de compte? ', switchToLogin:'Déjà un compte? ', registerLink:"S'inscrire", loginLink:'Se connecter', verifyTitle:"VÉRIFIER L'E-MAIL", verifyDesc:'Nous avons envoyé un code à 6 chiffres à', verifyBtn:'VÉRIFIER', paywallTitle:"PÉRIODE D'ESSAI EXPIRÉE", paywallDesc:'Passez à Pro pour continuer à utiliser Nexus Forward', paywallBtn:"DÉMARRER L'ABONNEMENT", paywallReferralBonus:"Quand un nouvel utilisateur s'inscrit avec votre code et paie, vous obtenez tous les deux 1 mois gratuit.", trialPill:'JOURS RESTANTS · UPGRADE', navOverview:'⬡  TABLEAU DE BORD', navChannel:'⊕  NOUVEAU CANAL', navReferral:'◈  PARRAINAGE', navSettings:'⊗  PARAMÈTRES', titleDashboard:'TABLEAU DE BORD', titleChannel:'NOUVEAU CANAL', titleReferral:'PROGRAMME DE PARRAINAGE', titleSettings:'PARAMÈTRES', statMessages:'MESSAGES TRANSFÉRÉS', statAds:'PUBLICITÉS SUPPRIMÉES', statChannels:'CANAUX ACTIFS', aiTitle:'TECHNOLOGIE IA', aiDesc:"L'IA avancée analyse et filtre chaque message en temps réel", emptyLabel:'PAS ENCORE DE CANAUX', sourceChannel:'CANAL SOURCE', targetChannel:'GROUPE CIBLE', sourcePlaceholder:'@liencanal ou lien API Bot', targetPlaceholder:'@liengroupe', removeAds:'Supprimer toute la publicité de la source', replaceLinks:'Remplacer les liens de la source', replaceSender:"Définir l'expéditeur comme:", senderPlaceholder:"Nom d'expéditeur souhaité", linkPlaceholder:'https://votre-landing.fr', activateBtn:'ACTIVER LE CANAL', referralDesc:'Partagez votre code et obtenez 1 mois gratuit pour vous et votre ami.', referralCodeLabel:'VOTRE CODE DE PARRAINAGE', copyBtn:'COPIER', copiedBtn:'COPIÉ!', referralBonus:"Quand un nouvel utilisateur s'inscrit avec votre code et paie, vous obtenez tous les deux 1 mois gratuit.", language:'LANGUE', upgradeTitle:'PASSER À PRO', upgradeDesc:'Seulement $9/mois après 30 jours gratuits', upgradeBtn:'METTRE À NIVEAU', logout:'SE DÉCONNECTER', activeLabel:'ACTIF', inactiveLabel:'INACTIF',
+  },
+  ar: {
+    appName:'NEXUS FORWARD', tagline:'إعادة توجيه بالذكاء الاصطناعي. مثالية. مستقلة.', aiBadge:'⬡ تقنية الذكاء الاصطناعي', titleWelcome:'مرحباً بعودتك', titleCreate:'إنشاء حساب', email:'البريد الإلكتروني', password:'كلمة المرور', referralInput:'هل لديك رمز إحالة؟', optional:'اختياري', termsText:'بالتسجيل توافق على أن Nexus Forward يمكنها إرسال معلومات عن خدماتنا إليك. لن نبيع بياناتك أبدًا.', acceptTerms:'أوافق على الشروط', btnLogin:'تسجيل الدخول', btnContinue:'متابعة', switchToRegister:'ليس لديك حساب? ', switchToLogin:'لديك حساب بالفعل? ', registerLink:'إنشاء حساب', loginLink:'تسجيل الدخول', verifyTitle:'التحقق من البريد الإلكتروني', verifyDesc:'أرسلنا رمزًا مكونًا من 6 أرقام إلى', verifyBtn:'تحقق', paywallTitle:'انتهت فترتك التجريبية', paywallDesc:'قم بالترقية إلى Pro لمواصلة استخدام Nexus Forward', paywallBtn:'بدء الاشتراك', paywallReferralBonus:'عندما يسجل مستخدم جديد بكودك ويدفع، تحصل أنتما معًا على شهر مجاني.', trialPill:'أيام متبقية · ترقية', navOverview:'⬡  لوحة التحكم', navChannel:'⊕  قناة جديدة', navReferral:'◈  الإحالة', navSettings:'⊗  الإعدادات', titleDashboard:'لوحة التحكم', titleChannel:'قناة جديدة', titleReferral:'برنامج الإحالة', titleSettings:'الإعدادات', statMessages:'الرسائل المُعاد توجيهها', statAds:'الإعلانات المُزالة', statChannels:'القنوات النشطة', aiTitle:'تقنية الذكاء الاصطناعي', aiDesc:'يقوم الذكاء الاصطناعي المتقدم بتحليل وتصفية كل رسالة في الوقت الفعلي', emptyLabel:'لا توجد قنوات بعد', sourceChannel:'القناة المصدر', targetChannel:'المجموعة الهدف', sourcePlaceholder:'@رابط القناة أو رابط Bot API', targetPlaceholder:'@رابط المجموعة', removeAds:'إزالة جميع الإعلانات من المصدر', replaceLinks:'استبدال روابط المصدر', replaceSender:'تعيين المرسل إلى:', senderPlaceholder:'اسم المرسل المطلوب', linkPlaceholder:'https://صفحتك.com', activateBtn:'تفعيل القناة', referralDesc:'شارك رمزك واحصل على شهر مجاني لك ولصديقك.', referralCodeLabel:'رمز الإحالة الخاص بك', copyBtn:'نسخ', copiedBtn:'تم النسخ!', referralBonus:'عندما يسجل مستخدم جديد بكودك ويدفع، تحصل أنتما معًا على شهر مجاني.', language:'اللغة', upgradeTitle:'الترقية إلى Pro', upgradeDesc:'فقط $9/شهر بعد 30 يومًا مجانًا', upgradeBtn:'ترقية', logout:'تسجيل الخروج', activeLabel:'نشط', inactiveLabel:'غير نشط',
+  },
+};
+
+const LANG_NAMES = { no:'Norsk', en:'English', sv:'Svenska', es:'Español', de:'Deutsch', fr:'Français', ar:'العربية' };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════════ */
+let state = {
+  lang: 'no',
+  authMode: 'login',
+  termsAccepted: false,
+  user: null,
+  channels: [],
+  toggleStates: { ads: false, links: false, sender: false, translate: false },
+  currentTab: 'overview',
+  trialDays: 15,
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════════════ */
+function t(key) { return (T[state.lang] || T.no)[key] || T.no[key] || key; }
+
+function generateReferral() {
+  return 'NX-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
+function notify(msg, type = 'success') {
+  const el = document.getElementById('notification');
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  el.className = type;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANGUAGE
+═══════════════════════════════════════════════════════════════════════════ */
+function setLang(lang) {
+  state.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  applyTranslations();
+  renderLangPickers();
+}
+
+function applyTranslations() {
+  // Auth screen
+  const isLogin = state.authMode === 'login';
+  setText('auth-app-name', t('appName'));
+  setText('auth-tagline', t('tagline'));
+  setText('auth-ai-badge', t('aiBadge'));
+  setText('auth-title', isLogin ? t('titleWelcome') : t('titleCreate'));
+  setLabel('lbl-email', t('email'));
+  setLabel('lbl-password', t('password'));
+  setLabel('lbl-referral-input', t('referralInput') + ' (' + t('optional') + ')');
+  setText('terms-text-content', t('termsText'));
+  setText('auth-btn', isLogin ? t('btnLogin') : t('btnContinue'));
+  setText('switch-prefix', isLogin ? t('switchToRegister') : t('switchToLogin'));
+  setText('switch-link', isLogin ? t('registerLink') : t('loginLink'));
+
+  // Verify
+  setText('verify-title', t('verifyTitle'));
+  setText('verify-btn', t('verifyBtn'));
+
+  // Paywall
+  setText('paywall-title', t('paywallTitle'));
+  setText('paywall-desc-text', t('paywallDesc'));
+  setText('paywall-referral-bonus', t('paywallReferralBonus'));
+
+  // Dashboard nav
+  document.querySelectorAll('.nav-item')[0].textContent = t('navOverview');
+  document.querySelectorAll('.nav-item')[1].textContent = t('navChannel');
+  document.querySelectorAll('.nav-item')[2].textContent = t('navReferral');
+  document.querySelectorAll('.nav-item')[3].textContent = t('navSettings');
+
+  // Dashboard content
+  setText('title-dashboard', t('titleDashboard'));
+  setText('title-new-channel', t('titleChannel'));
+  setText('title-referral', t('titleReferral'));
+  setText('title-settings', t('titleSettings'));
+  setText('lbl-stat-messages', t('statMessages'));
+  setText('lbl-stat-ads', t('statAds'));
+  setText('lbl-stat-channels', t('statChannels'));
+  setText('ai-banner-title', t('aiTitle'));
+  setText('ai-banner-text', t('aiDesc'));
+  setText('empty-label', t('emptyLabel'));
+  setLabel('lbl-source-channel', t('sourceChannel'));
+  setLabel('lbl-target-channel', t('targetChannel'));
+  setPH('ch-source', t('sourcePlaceholder'));
+  setPH('ch-target', t('targetPlaceholder'));
+  setText('lbl-remove-ads', t('removeAds'));
+  setText('lbl-replace-links', t('replaceLinks'));
+  setText('lbl-replace-sender', t('replaceSender'));
+  setPH('ch-link-url', t('linkPlaceholder'));
+  setPH('ch-sender-name', t('senderPlaceholder'));
+  setText('btn-activate', t('activateBtn'));
+  setText('referral-desc-text', t('referralDesc'));
+  setLabel('lbl-referral-code', t('referralCodeLabel'));
+  setText('copy-btn', t('copyBtn'));
+  setText('referral-bonus-text', t('referralBonus'));
+  setLabel('lbl-language-settings', t('language'));
+  setText('upgrade-title', t('upgradeTitle'));
+  setText('upgrade-desc', t('upgradeDesc'));
+  setText('btn-upgrade', t('upgradeBtn'));
+
+  // Trial pill
+  const pill = document.getElementById('trial-pill');
+  if (pill) pill.textContent = state.trialDays + ' ' + t('trialPill');
+}
+
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function setLabel(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function setPH(id, val) { const el = document.getElementById(id); if (el) el.placeholder = val; }
+
+function renderLangPickers() {
+  ['lang-picker-auth', 'lang-picker-settings'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = Object.entries(LANG_NAMES).map(([code, name]) =>
+      `<button class="lang-btn ${state.lang === code ? 'active' : ''}" onclick="setLang('${code}')">${name}</button>`
+    ).join('');
+  });
+
+  const sel = document.getElementById('dash-lang-select');
+  if (sel) {
+    sel.innerHTML = Object.entries(LANG_NAMES).map(([code, name]) =>
+      `<option value="${code}" ${state.lang === code ? 'selected' : ''}>${name}</option>`
+    ).join('');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════════════════════════ */
+function toggleAuthMode() {
+  state.authMode = state.authMode === 'login' ? 'register' : 'login';
+  const isLogin = state.authMode === 'login';
+  document.getElementById('register-extras').style.display = isLogin ? 'none' : 'block';
+  state.termsAccepted = false;
+  document.getElementById('terms-checkbox').classList.remove('checked');
+  applyTranslations();
+  updateAuthBtn();
+}
+
+function toggleTerms() {
+  state.termsAccepted = !state.termsAccepted;
+  const cb = document.getElementById('terms-checkbox');
+  cb.classList.toggle('checked', state.termsAccepted);
+  updateAuthBtn();
+}
+
+function updateAuthBtn() {
+  const btn = document.getElementById('auth-btn');
+  if (state.authMode === 'register') {
+    btn.disabled = !state.termsAccepted;
+  } else {
+    btn.disabled = false;
+  }
+}
+
+function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-password').value;
+  if (!email || !pass) { notify('Fyll inn alle felt', 'error'); return; }
+
+  if (state.authMode === 'login') {
+    // Simulate login
+    state.user = { email, referral: generateReferral(), trialDays: state.trialDays };
+    document.getElementById('settings-email').textContent = email;
+    document.getElementById('user-referral-code').textContent = state.user.referral;
+    document.getElementById('paywall-referral-code').textContent = state.user.referral;
+    applyTranslations();
+    showScreen('dashboard');
+    switchTab('overview', document.querySelector('.nav-item'));
+  } else {
+    // Go to verify
+    document.getElementById('verify-email-display').textContent = email;
+    document.getElementById('verify-desc-text').innerHTML = t('verifyDesc') + '<br><strong style="color:var(--text);font-size:13px;">' + email + '</strong>';
+    showScreen('verify');
+  }
+}
+
+function handleCodeInput(input, idx) {
+  if (input.value.length === 1) {
+    const inputs = document.querySelectorAll('.code-input');
+    if (idx < 5) inputs[idx + 1].focus();
+  }
+}
+
+function handleVerify() {
+  const inputs = document.querySelectorAll('.code-input');
+  const code = Array.from(inputs).map(i => i.value).join('');
+  if (code.length < 6) { notify('Skriv inn 6-sifret kode', 'error'); return; }
+
+  const email = document.getElementById('auth-email').value.trim();
+  state.user = { email, referral: generateReferral(), trialDays: 30 };
+  state.trialDays = 30;
+  document.getElementById('settings-email').textContent = email;
+  document.getElementById('user-referral-code').textContent = state.user.referral;
+  document.getElementById('paywall-referral-code').textContent = state.user.referral;
+  applyTranslations();
+  notify('Konto opprettet! Velkommen til Nexus Forward.');
+  showScreen('dashboard');
+  switchTab('overview', document.querySelector('.nav-item'));
+}
+
+function handleLogout() {
+  state.user = null;
+  state.channels = [];
+  state.authMode = 'login';
+  document.getElementById('register-extras').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+  renderChannelList();
+  document.getElementById('stat-channels').textContent = '0';
+  applyTranslations();
+  showScreen('auth');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════════════════════ */
+function switchTab(tabId, btn) {
+  // Nav items
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // Tab content
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + tabId);
+  if (tab) tab.classList.add('active');
+
+  state.currentTab = tabId;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRANSLATION ENGINE
+═══════════════════════════════════════════════════════════════════════════ */
+const LANG_NAMES_FULL = {
+  auto:'Auto-detekter', ar:'Arabisk', fa:'Persisk', he:'Hebraisk', tr:'Tyrkisk',
+  ru:'Russisk', zh:'Kinesisk', ja:'Japansk', ko:'Koreansk', hi:'Hindi',
+  de:'Tysk', fr:'Fransk', es:'Spansk', pt:'Portugisisk', it:'Italiensk',
+  pl:'Polsk', uk:'Ukrainsk', nl:'Nederlandsk', sv:'Svensk', da:'Dansk',
+  fi:'Finsk', en:'Engelsk', no:'Norsk',
+};
+
+const TRANSLATE_STYLE_PROMPTS = {
+  natural:  'Translate naturally and fluently, preserving the original tone and meaning as a native speaker would.',
+  formal:   'Translate formally and professionally, using formal register and precise terminology.',
+  news:     'Translate as a news article or broadcast — clear, neutral, journalistic language.',
+  literal:  'Translate as literally as possible while remaining grammatically correct.',
+};
+
+let translateStyle = 'natural';
+let translateDebounceTimer = null;
+let apiKeyValid = false;
+
+function setTranslateStyle(style, btn) {
+  translateStyle = style;
+  document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function handleApiKeyInput() {
+  const key = document.getElementById('demo-api-key').value.trim();
+  const status = document.getElementById('api-key-status');
+  if (key.startsWith('sk-ant-')) {
+    status.className = 'api-key-status ok';
+    status.textContent = '✓ API-nøkkel registrert — klar for live oversettelse';
+    apiKeyValid = true;
+  } else if (key.length > 0) {
+    status.className = 'api-key-status missing';
+    status.textContent = '⚠ Ugyldig format — nøkkel må starte med sk-ant-';
+    apiKeyValid = false;
+  } else {
+    status.className = 'api-key-status missing';
+    status.textContent = '⚠ Ingen nøkkel — demo bruker eksempel-oversettelse';
+    apiKeyValid = false;
+  }
+}
+
+function testApiKey() {
+  const key = document.getElementById('demo-api-key').value.trim();
+  if (!key) { notify('Skriv inn API-nøkkel først', 'error'); return; }
+  notify('Tester nøkkel...', 'success');
+  // In production this would do a real test call
+  setTimeout(() => {
+    if (key.startsWith('sk-ant-')) {
+      notify('✓ API-nøkkel fungerer!', 'success');
+      apiKeyValid = true;
+    } else {
+      notify('✗ Ugyldig API-nøkkel', 'error');
+    }
+  }, 800);
+}
+
+function debouncedTranslate() {
+  clearTimeout(translateDebounceTimer);
+  translateDebounceTimer = setTimeout(runDemoTranslate, 900);
+}
+
+// Example translations for demo without API key
+const DEMO_TRANSLATIONS = {
+  'مرحباً': { no: 'Hei', en: 'Hello', sv: 'Hej', de: 'Hallo', fr: 'Bonjour', es: 'Hola' },
+  default_ar: {
+    no: 'Dette er en intelligent AI-oversettelse fra arabisk til norsk. Claude forstår kontekst, idiomer og kulturelle nyanser som vanlige oversettingsverktøy ikke klarer å håndtere.',
+    en: 'This is an intelligent AI translation from Arabic to English. Claude understands context, idioms, and cultural nuances that ordinary translation tools cannot handle.',
+    sv: 'Detta är en intelligent AI-översättning från arabiska till svenska. Claude förstår sammanhang, idiom och kulturella nyanser som vanliga översättningsverktyg inte kan hantera.',
+    de: 'Dies ist eine intelligente KI-Übersetzung vom Arabischen ins Deutsche. Claude versteht Kontext, Redewendungen und kulturelle Nuancen, die normale Übersetzungstools nicht bewältigen können.',
+    fr: "C'est une traduction IA intelligente de l'arabe vers le français. Claude comprend le contexte, les idiomes et les nuances culturelles que les outils de traduction ordinaires ne peuvent pas gérer.",
+    es: 'Esta es una traducción de IA inteligente del árabe al español. Claude entiende el contexto, los modismos y los matices culturales que las herramientas de traducción ordinarias no pueden manejar.',
+  }
+};
+
+async function runDemoTranslate() {
+  const input = document.getElementById('demo-input').value.trim();
+  const output = document.getElementById('demo-output');
+  const status = document.getElementById('translate-status');
+  const fromLang = document.getElementById('ch-lang-from').value;
+  const toLang = document.getElementById('ch-lang-to').value;
+
+  if (!input) { output.value = ''; return; }
+
+  const fromName = LANG_NAMES_FULL[fromLang] || fromLang;
+  const toName = LANG_NAMES_FULL[toLang] || toLang;
+
+  output.classList.add('loading');
+  output.value = '';
+  status.textContent = `⬡ OVERSETTER ${fromName.toUpperCase()} → ${toName.toUpperCase()}...`;
+
+  const apiKey = document.getElementById('demo-api-key').value.trim();
+
+  if (apiKeyValid && apiKey.startsWith('sk-ant-')) {
+    // Real Claude API call
+    try {
+      const stylePrompt = TRANSLATE_STYLE_PROMPTS[translateStyle];
+      const fromPrompt = fromLang === 'auto' ? 'auto-detect the source language' : `from ${fromName}`;
+      const prompt = `${stylePrompt}\n\nTranslate the following text ${fromPrompt} to ${toName}. Return ONLY the translated text, nothing else.\n\nText to translate:\n${input}`;
+
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      if (!resp.ok) throw new Error('API error ' + resp.status);
+      const data = await resp.json();
+      const translated = data.content?.[0]?.text || '';
+      output.classList.remove('loading');
+      output.value = translated;
+      status.textContent = `✓ OVERSATT MED CLAUDE SONNET · ${translateStyle.toUpperCase()} STIL`;
+    } catch (err) {
+      output.classList.remove('loading');
+      output.value = '';
+      status.textContent = '✗ FEIL: ' + err.message;
+      notify('API-feil: ' + err.message, 'error');
+    }
+  } else {
+    // Demo mode — simulate with delay
+    await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
+    output.classList.remove('loading');
+    const demo = DEMO_TRANSLATIONS.default_ar[toLang] || DEMO_TRANSLATIONS.default_ar['en'];
+    output.value = `[DEMO — ${toName}]\n${demo}`;
+    status.textContent = `⬡ DEMO-MODUS · Legg inn Claude API-nøkkel for live oversettelse`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOGGLES
+═══════════════════════════════════════════════════════════════════════════ */
+function toggleSwitch(name) {
+  state.toggleStates[name] = !state.toggleStates[name];
+  const on = state.toggleStates[name];
+  const btn = document.getElementById('toggle-' + name);
+  btn.style.background = on ? '#FFD700' : '#B8860B33';
+  const knob = btn.querySelector('.toggle-knob');
+  knob.style.left = on ? '25px' : '4px';
+
+  // Show/hide expand inputs
+  if (name === 'links') {
+    document.getElementById('ch-link-url').style.display = on ? 'block' : 'none';
+  }
+  if (name === 'sender') {
+    document.getElementById('ch-sender-name').style.display = on ? 'block' : 'none';
+  }
+  if (name === 'translate') {
+    document.getElementById('translate-options').style.display = on ? 'block' : 'none';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHANNELS
+═══════════════════════════════════════════════════════════════════════════ */
+function addChannel() {
+  const source = document.getElementById('ch-source').value.trim();
+  const target = document.getElementById('ch-target').value.trim();
+  if (!source || !target) { notify('Fyll inn kilde og mål', 'error'); return; }
+
+  const fromLang = document.getElementById('ch-lang-from').value;
+  const toLang = document.getElementById('ch-lang-to').value;
+
+  const ch = {
+    id: Date.now(),
+    source,
+    target,
+    removeAds: state.toggleStates.ads,
+    replaceLinks: state.toggleStates.links,
+    linkUrl: document.getElementById('ch-link-url').value.trim(),
+    replaceSender: state.toggleStates.sender,
+    senderName: document.getElementById('ch-sender-name').value.trim(),
+    translate: state.toggleStates.translate,
+    fromLang,
+    toLang,
+    translateStyle,
+    active: true,
+  };
+
+  state.channels.push(ch);
+  renderChannelList();
+
+  // Reset
+  document.getElementById('ch-source').value = '';
+  document.getElementById('ch-target').value = '';
+  document.getElementById('ch-link-url').value = '';
+  document.getElementById('ch-sender-name').value = '';
+  document.getElementById('demo-input').value = '';
+  document.getElementById('demo-output').value = '';
+  document.getElementById('translate-status').textContent = '';
+  ['ads','links','sender','translate'].forEach(name => {
+    state.toggleStates[name] = false;
+    const btn = document.getElementById('toggle-' + name);
+    if (btn) {
+      btn.style.background = '#B8860B33';
+      btn.querySelector('.toggle-knob').style.left = '4px';
+    }
+  });
+  document.getElementById('ch-link-url').style.display = 'none';
+  document.getElementById('ch-sender-name').style.display = 'none';
+  document.getElementById('translate-options').style.display = 'none';
+
+  notify('Kanal aktivert! Meldinger videresendes nå.');
+  switchTab('overview', document.querySelector('.nav-item'));
+}
+
+function renderChannelList() {
+  const list = document.getElementById('channel-list');
+  const empty = document.getElementById('empty-state');
+  const count = state.channels.length;
+
+  document.getElementById('stat-channels').textContent = count;
+
+  if (count === 0) {
+    empty.style.display = 'block';
+    list.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  list.style.display = 'flex';
+
+  list.innerHTML = state.channels.map(ch => `
+    <div class="card channel-card">
+      <div>
+        <div class="channel-route">${ch.source} → ${ch.target}</div>
+        <div class="channel-tags">
+          ${ch.removeAds ? '<span class="tag tag-gold">AD-FREE</span>' : ''}
+          ${ch.replaceLinks ? '<span class="tag tag-dim">LINK REPLACED</span>' : ''}
+          ${ch.replaceSender ? '<span class="tag tag-dim">CUSTOM SENDER</span>' : ''}
+          ${ch.translate ? `<span class="tag" style="background:#00BFFF11;border:1px solid #00BFFF44;color:#00BFFF;">⬡ ${(LANG_NAMES_FULL[ch.fromLang]||ch.fromLang).toUpperCase()} → ${(LANG_NAMES_FULL[ch.toLang]||ch.toLang).toUpperCase()}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;">
+        <div class="channel-status">
+          <div class="status-dot ${ch.active ? 'status-active' : 'status-inactive'}"></div>
+          <span class="status-text ${ch.active ? 'active' : 'inactive'}">${ch.active ? t('activeLabel') : t('inactiveLabel')}</span>
+        </div>
+        <button class="btn-outline" style="padding:6px 12px;font-size:10px;" onclick="toggleChannelActive(${ch.id})">
+          ${ch.active ? '⏸' : '▶'}
+        </button>
+        <button class="btn-outline" style="padding:6px 12px;font-size:10px;border-color:#FF444477;color:#FF4444;" onclick="deleteChannel(${ch.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleChannelActive(id) {
+  const ch = state.channels.find(c => c.id === id);
+  if (ch) { ch.active = !ch.active; renderChannelList(); }
+}
+
+function deleteChannel(id) {
+  state.channels = state.channels.filter(c => c.id !== id);
+  renderChannelList();
+  notify('Kanal fjernet');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REFERRAL
+═══════════════════════════════════════════════════════════════════════════ */
+function copyReferral() {
+  const code = document.getElementById('user-referral-code').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = t('copiedBtn');
+    setTimeout(() => { btn.textContent = t('copyBtn'); }, 2000);
+  }).catch(() => {
+    notify(code + ' — kopier manuelt', 'success');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE COUNTER ANIMATION (dashboard illusion)
+═══════════════════════════════════════════════════════════════════════════ */
+let msgCount = 12847;
+let adsCount = 3241;
+setInterval(() => {
+  if (document.getElementById('screen-dashboard').classList.contains('active')) {
+    if (Math.random() > 0.6) {
+      msgCount += Math.floor(Math.random() * 3) + 1;
+      adsCount += Math.random() > 0.6 ? 1 : 0;
+      const msgEl = document.getElementById('stat-messages');
+      const adsEl = document.getElementById('stat-ads');
+      if (msgEl) msgEl.textContent = msgCount.toLocaleString();
+      if (adsEl) adsEl.textContent = adsCount.toLocaleString();
+    }
+  }
+}, 1800);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════════════════ */
+renderLangPickers();
+applyTranslations();
+updateAuthBtn();
+</script>
+</body>
+</html>
